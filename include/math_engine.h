@@ -14,4 +14,7 @@ double sine(double a);
 double cosine(double a);
 double tangent(double a);
 
+// Expression evaluation function
+double evaluate_expression(const char* expression);  // <-- Add this line
+
 #endif
