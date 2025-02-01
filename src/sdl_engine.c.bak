@@ -38,24 +38,12 @@ SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 TTF_Font* font = NULL;
 
-int screen_on = 1; 
-int in_mode_screen = 0;
-int selected_option = 0;
-
 // Function prototypes
 void draw_button(int x, int y, int w, int h, SDL_Color color, const char* label);
 void update_screen();
 void append_to_expression(char c);
-void append_to_expression_string(const char* str);
 void handle_key(SDL_Keycode key);
 void handle_mouse_click(int x, int y);
-void handle_on_button();
-void handle_q_button();
-void handle_enter();
-void clear_screen();
-void handle_del_button();
-void render_mode_screen();
-void draw_text(int x, int y, const char* text, SDL_Color color);
 
 // Initialize SDL and SDL_ttf
 int init_sdl() {
@@ -89,28 +77,14 @@ int init_sdl() {
 
 // Clean up SDL and TTF resources
 void close_sdl() {
-    // Free any resources you may have allocated during the program
-    // Clean up SDL resources
-    if (font) {
-        TTF_CloseFont(font);
-        font = NULL;
-    }
+    TTF_CloseFont(font);
+    font = NULL;
 
-    if (renderer) {
-        SDL_DestroyRenderer(renderer);
-        renderer = NULL;
-    }
-
-    if (window) {
-        SDL_DestroyWindow(window);
-        window = NULL;
-    }
-
-    // Clean up SDL_ttf and SDL subsystems
-    TTF_Quit();
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
     SDL_Quit();
+    TTF_Quit();
 }
-
 
 // Draw a button with text on it
 void draw_button(int x, int y, int w, int h, SDL_Color color, const char* label) {
@@ -151,16 +125,7 @@ void update_screen() {
 
     // Draw the calculator screen area
     SDL_Rect display_rect = { DISPLAY_X, DISPLAY_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT };
-    if (screen_on) {
-        // Render the screen as usual
-        SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);  // Light grey display (ON)
-    } else {
-        // Render a darker grey for the screen-off state
-        SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);  // Dark grey display (OFF)
-        SDL_RenderFillRect(renderer, &display_rect);  // Only darken the screen area
-        SDL_RenderPresent(renderer);  // Update the screen with the dark grey display
-        return;  // Skip rendering the rest of the screen content
-    }
+    SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);  // Light gray display
     SDL_RenderFillRect(renderer, &display_rect);
 
     // Adjustments: Setting better positioning variables
@@ -247,19 +212,6 @@ void update_screen() {
     SDL_DestroyTexture(text);
 }
 
-// Append full strings to the expression buffer (e.g., for functions like "sin(")
-void append_to_expression_string(const char* str) {
-    // Safeguard: Make sure the last part of the expression doesn't already contain this function
-    if (strlen(screen_buffer[current_line]) + strlen(str) < LINE_LENGTH - 1) {
-        // Append only if the last characters don't already match the function we're adding
-        if (strstr(screen_buffer[current_line], str) == NULL || strlen(screen_buffer[current_line]) == 0) {
-            strcat(screen_buffer[current_line], str);
-            cursor_position += strlen(str);
-            update_screen();  // Update the screen after adding a string
-        }
-    }
-}
-
 // Append characters to the screen's expression buffer
 void append_to_expression(char c) {
     if (strlen(screen_buffer[current_line]) < LINE_LENGTH - 1) {
@@ -271,60 +223,8 @@ void append_to_expression(char c) {
     }
 }
 
-// List of options for the Mode screen
-const char* mode_options[] = {
-    "NORMAL     SCI      ENG",   // Line 1
-    "FLOAT      INTEGER",        // Line 2
-    "RADIAN     DEGREE",         // Line 3
-    "FUNC   PAR   POL   SEQ",    // Line 4
-    "CONNECTED  DOT",            // Line 5
-    "SEQUENTIAL  DOT"            // Line 6
-};
-
-int num_options = sizeof(mode_options) / sizeof(mode_options[0]);
-int scroll_offset = 0;  // Tracks which part of the list is visible
-
-// Render the Mode screen
-void render_mode_screen() {
-    // Retain the rest of the calculator background and buttons
-    render_calculator();  // This will keep the buttons and outer layout the same
-    
-    // Now draw the mode view only within the screen area
-    SDL_Rect display_rect = {DISPLAY_X, DISPLAY_Y, DISPLAY_WIDTH, DISPLAY_HEIGHT};
-    SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);  // Light grey like the calculator screen
-    SDL_RenderFillRect(renderer, &display_rect);  // Only fill the calculator screen
-
-    SDL_Color text_color = {0, 0, 0, 255};  // Black text for options
-    SDL_Color highlight_color = {0, 255, 0, 255};  // Green for the selected option
-    int line_height = 20;  // Spacing between each option
-    int start_y = DISPLAY_Y + 10;  // Start within the calculator screen
-
-    // Render each visible option within the calculator screen
-    for (int i = scroll_offset; i < scroll_offset + MAX_LINES && i < num_options; i++) {
-        SDL_Color current_color = (i == selected_option) ? highlight_color : text_color;
-        draw_text(DISPLAY_X + 5, start_y + (i - scroll_offset) * line_height, mode_options[i], current_color);
-    }
-
-    SDL_RenderPresent(renderer);  // Update the screen with the mode view
-}
-
-// Helper function to draw text on the screen
-void draw_text(int x, int y, const char* text, SDL_Color color) {
-    SDL_Surface* textSurface = TTF_RenderText_Solid(font, text, color);
-    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-
-    int text_width, text_height;
-    TTF_SizeText(font, text, &text_width, &text_height);
-    SDL_Rect textRect = {x, y, text_width, text_height};
-
-    SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
-    SDL_FreeSurface(textSurface);
-    SDL_DestroyTexture(textTexture);
-}
-
 // Render the entire calculator layout, including buttons
 void render_calculator() {
-                                 //
     update_screen();  // Update the screen first
 
     // Define button color
@@ -375,11 +275,7 @@ void render_calculator() {
     // Left column buttons
     int left_x = 20;
     // "ON" button to the left of "0", larger (same size as Enter)
-    if (screen_on) {
-        draw_button(left_x, start_y + 120, BUTTON_WIDTH, BUTTON_HEIGHT * 2, button_color, "OFF");  // Show "OFF" when screen is on
-    } else {
-        draw_button(left_x, start_y + 120, BUTTON_WIDTH, BUTTON_HEIGHT * 2, button_color, "ON");   // Show "ON" when screen is off
-    }
+    draw_button(left_x, start_y + 120, BUTTON_WIDTH, BUTTON_HEIGHT * 2, button_color, "ON");
 
     // "log" left of 7, "ln" left of 4, "q" left of 1, "x^2" left of ","
     draw_button(left_x, start_y, BUTTON_WIDTH, BUTTON_HEIGHT, button_color, "log");
@@ -427,118 +323,39 @@ void render_calculator() {
 
 // Handle key press events
 void handle_key(SDL_Keycode key) {
-    if (in_mode_screen) {
-        switch (key) {
-            case SDLK_DOWN:
-                if (selected_option < num_options - 1) {
-                    selected_option++;
-                    if (selected_option >= scroll_offset + MAX_LINES) {
-                        scroll_offset++;
-                    }
-                }
-                break;
-            case SDLK_UP:
-                if (selected_option > 0) {
-                    selected_option--;
-                    if (selected_option < scroll_offset) {
-                        scroll_offset--;
-                    }
-                }
-                render_mode_screen();  // Re-render the Mode screen
-                break;
-            case SDLK_RETURN:
-            case SDLK_KP_ENTER:
-                printf("Selected option: %s\n", mode_options[selected_option]);
-                // Implement mode option handling if needed
-                break;
-            case SDLK_ESCAPE:
-                in_mode_screen = 0;  // Exit the mode screen on Escape
-                render_calculator();  // Re-render calculator view
-                break;
-            default:
-                break;
-        }
-    } else {
-        // Regular calculator key handling
-        switch (key) {
-            case SDLK_1:
-                append_to_expression('1');
-                break;
-            case SDLK_2:
-                append_to_expression('2');
-                break;
-            case SDLK_3:
-                append_to_expression('3');
-                break;
-            case SDLK_4:
-                append_to_expression('4');
-                break;
-            case SDLK_5:
-                append_to_expression('5');
-                break;
-            case SDLK_6:
-                append_to_expression('6');
-                break;
-            case SDLK_7:
-                append_to_expression('7');
-                break;
-            case SDLK_8:
-                append_to_expression('8');
-                break;
-            case SDLK_9:
-                append_to_expression('9');
-                break;
-            case SDLK_0:
-                append_to_expression('0');
-                break;
-            case SDLK_PLUS:
-            case SDLK_KP_PLUS:
-                append_to_expression('+');
-                break;
-            case SDLK_MINUS:
-            case SDLK_KP_MINUS:
-                append_to_expression('-');
-                break;
-            case SDLK_SLASH:
-            case SDLK_KP_DIVIDE:
-                append_to_expression('/');
-                break;
-            case SDLK_ASTERISK:
-            case SDLK_KP_MULTIPLY:
-                append_to_expression('*');
-                break;
-            case SDLK_RETURN:
-            case SDLK_KP_ENTER:
-                printf("Enter key pressed\n");
-                handle_enter();  // Evaluate expression on Enter key
-                break;
-            case SDLK_l:  // Logarithm (log)
-                append_to_expression_string("log(");
-                break;
-            case SDLK_n:  // Natural Logarithm (ln)
-                append_to_expression_string("ln(");
-                break;
-            case SDLK_c:  // Cosine (cos)
-                append_to_expression_string("cos(");
-                break;
-            case SDLK_s:  // Sine (sin)
-                append_to_expression_string("sin(");
-                break;
-            case SDLK_t:  // Tangent (tan)
-                append_to_expression_string("tan(");
-                break;
-            case SDLK_BACKSPACE:
-                handle_del_button();  // Handle delete (DEL) ke
-                break;
-            case SDLK_MODE:
-                in_mode_screen = 1;  // Switch to mode screen
-                selected_option = 0;
-                scroll_offset = 0;
-                break;
-            default:
-                break;
-        }
+    switch (key) {
+        case SDLK_1:
+            append_to_expression('1');
+            break;
+        case SDLK_2:
+            append_to_expression('2');
+            break;
+        case SDLK_PLUS:
+        case SDLK_KP_PLUS:
+            append_to_expression('+');
+            break;
+        case SDLK_MINUS:
+        case SDLK_KP_MINUS:
+            append_to_expression('-');
+            break;
+        case SDLK_SLASH:
+        case SDLK_KP_DIVIDE:
+            append_to_expression('/');
+            break;
+        case SDLK_ASTERISK:
+        case SDLK_KP_MULTIPLY:
+            append_to_expression('*');
+            break;
+        case SDLK_RETURN:
+        case SDLK_KP_ENTER:
+            // Enter key handling can execute the expression in the future
+            printf("Enter key pressed\n");
+            handle_enter();  // Evaluate expression on Enter key
+            break;
+        default:
+            break;
     }
+    //update_screen();
 }
 
 // Detect mouse click events on buttons
@@ -546,7 +363,6 @@ void handle_mouse_click(int x, int y) {
     // Right-side buttons layout
     int right_x = 220;  // X position of the right-side buttons
     int start_y = 500;  // Y position of the bottom-most buttons
-    int left_x = 20;
 
     // Check for right-side buttons ("/", "*", "-", "+", "Enter")
     if (x >= right_x && x <= right_x + BUTTON_WIDTH && y >= start_y - 120 && y <= start_y - 120 + BUTTON_HEIGHT) {
@@ -561,6 +377,7 @@ void handle_mouse_click(int x, int y) {
     } else if (x >= right_x && x <= right_x + BUTTON_WIDTH && y >= start_y && y <= start_y + BUTTON_HEIGHT) {
         printf("+ button clicked\n");
         append_to_expression('+');
+
     } else if (x >= right_x && x <= right_x + BUTTON_WIDTH && y >= start_y + 40 && y <= start_y + 40 + BUTTON_HEIGHT * 2) {
         printf("Enter button clicked\n");
         handle_enter();  // Handle enter key (evaluate expression)
@@ -576,7 +393,7 @@ void handle_mouse_click(int x, int y) {
         append_to_expression('.');
     } else if (x >= start_x + 100 && x <= start_x + 100 + BUTTON_WIDTH && y >= start_y + 40 && y <= start_y + 40 + BUTTON_HEIGHT) {
         printf("(-) button clicked\n");
-        append_to_expression_string("neg");  // Could be treated as a negation symbol
+        append_to_expression('-');  // Could be treated as a negation symbol
 
     } else if (x >= start_x && x <= start_x + BUTTON_WIDTH && y >= start_y && y <= start_y + BUTTON_HEIGHT) {
         printf("1 button clicked\n");
@@ -643,97 +460,10 @@ void handle_mouse_click(int x, int y) {
         printf("GRAPH button clicked\n");
     }
 
-    // "log", "ln", "sin", "cos", "tan"
-    if (x >= left_x && x <= left_x + BUTTON_WIDTH && y >= start_y && y <= start_y + BUTTON_HEIGHT) {
-        printf("log button clicked\n");
-        append_to_expression_string("log(");
-    } else if (x >= left_x && x <= left_x + BUTTON_WIDTH && y >= start_y + 40 && y <= start_y + 40 + BUTTON_HEIGHT) {
-        printf("ln button clicked\n");
-        append_to_expression_string("ln(");
-    } else if (x >= start_x && x <= start_x + BUTTON_WIDTH && y >= start_y - 80 && y <= start_y - 80 + BUTTON_HEIGHT) {  // Corrected position for "sin" button above ","
-        printf("sin button clicked\n");
-        append_to_expression_string("sin(");
-    } else if (x >= start_x + 50 && x <= start_x + 50 + BUTTON_WIDTH && y >= start_y - 80 && y <= start_y - 80 + BUTTON_HEIGHT) {  // Corrected position for "cos" button above "("
-        printf("cos button clicked\n");
-        append_to_expression_string("cos(");
-    } else if (x >= start_x + 100 && x <= start_x + 100 + BUTTON_WIDTH && y >= start_y - 80 && y <= start_y - 80 + BUTTON_HEIGHT) {  // Corrected position for "tan" button above ")"
-        printf("tan button clicked\n");
-        append_to_expression_string("tan(");
-    }
-
-    // Check for "^" button click (above "/")
-    if (x >= right_x && x <= right_x + BUTTON_WIDTH && y >= start_y - 80 && y <= start_y - 80 + BUTTON_HEIGHT) {
-        printf("^ button clicked\n");
-        append_to_expression('^');  // Append "^" to the expression
-    }
-
-    // Handle the "Clear" button click (above "^")
-    if (x >= right_x && x <= right_x + BUTTON_WIDTH && y >= start_y - 120 && y <= start_y - 120 + BUTTON_HEIGHT) {
-        printf("Clear button clicked\n");
-        clear_screen();  // Call a new function to clear the screen
-    }
-
-    // Check for "ON" button click (left of "0", larger)
-    if (x >= left_x && x <= left_x + BUTTON_WIDTH && y >= start_y + 120 && y <= start_y + 120 + BUTTON_HEIGHT * 2) {
-        printf("ON button clicked\n");
-        handle_on_button();         
-    }
-
-    // Check for "q" button click (left of "1")
-    if (x >= left_x && x <= left_x + BUTTON_WIDTH && y >= start_y + 80 && y <= start_y + 80 + BUTTON_HEIGHT) {
-        printf("q button clicked\n");
-        handle_q_button(); 
-    }
-
-    // Check for "x^2" button click (left of ",")
-    if (x >= left_x && x <= left_x + BUTTON_WIDTH && y >= start_y - 40 && y <= start_y - 40 + BUTTON_HEIGHT) {
-        printf("x^2 button clicked\n");
-        append_to_expression_string("^2");  // Append "^2" to the expression
-    }
-
-    // Check for "X^-1" button click (above "x^2")
-    if (x >= left_x && x <= left_x + BUTTON_WIDTH && y >= start_y - 80 && y <= start_y - 80 + BUTTON_HEIGHT) {
-        printf("X^-1 button clicked\n");
-        append_to_expression_string("^neg1");  // Append "^-1" to the expression
-    }
-
-    // Check if the DEL button is clicked
-    if (x >= right_x - 100 && x <= right_x - 100 + BUTTON_WIDTH && y >= start_y - 200 && y <= start_y - 200 + BUTTON_HEIGHT) {
-        printf("DEL button clicked\n");
-        handle_del_button();  // Call the function to handle the delete action
-        return;
-    }
-
-    // MODE button detection
-    if (x >= right_x - 150 && x <= right_x - 150 + BUTTON_WIDTH && y >= start_y - 200 && y <= start_y - 200 + BUTTON_HEIGHT) {
-        printf("MODE button clicked\n");
-        in_mode_screen = 1;  // Switch to mode screen
-        render_mode_screen();  // Render the mode screen
-        return;
-    }
-
+    // Add logic for other buttons in the new layout (log, ln, q, etc.)
+    
+    //update_screen();
 }
-
-// Function to clear the calculator's screen and reset the cursor
-void clear_screen() {
-    // Clear the screen buffer
-    for (int i = 0; i < MAX_LINES; i++) {
-        memset(screen_buffer[i], 0, LINE_LENGTH);  // Clear each line in the buffer
-    }
-
-    // Reset the current line and cursor position
-    current_line = 0;
-    cursor_position = 0;
-
-    // Reset the expression buffer
-    memset(expression, 0, sizeof(expression));
-
-    printf("Screen cleared\n");
-
-    // Update the screen after clearing
-    update_screen();
-}
-
 
 // Handle events
 void handle_input(int* quit) {
@@ -747,44 +477,6 @@ void handle_input(int* quit) {
             handle_mouse_click(event.button.x, event.button.y);
         }
     }
-    // Persist the mode screen if active
-    if (in_mode_screen) {
-        render_mode_screen();  // Keep rendering the mode screen
-    } else {
-        render_calculator();   // If not in mode, render calculator as usual
-    }
-}
-
-void handle_del_button() {
-    if (cursor_position > 0) {
-        // Shift all characters after the cursor one position to the left
-        int len = strlen(screen_buffer[current_line]);
-        for (int i = cursor_position - 1; i < len; i++) {
-            screen_buffer[current_line][i] = screen_buffer[current_line][i + 1];
-        }
-        cursor_position--;  // Move the cursor back one position
-        update_screen();     // Re-render the screen with the updated expression
-    }
-}
-
-void handle_on_button() {
-    if (screen_on) {
-        screen_on = 0;  // Turn the screen off
-        printf("Turning screen off\n");
-    } else {
-        screen_on = 1;  // Turn the screen on
-        printf("Turning screen on\n");
-    }
-    update_screen();  // Re-render the screen in its current state
-}
-
-void handle_q_button() {
-    printf("Exiting the program cleanly\n");
-
-    // Free all allocated memory and clean up SDL
-    close_sdl();  // Ensure SDL resources are freed and program exits cleanly
-
-    exit(0);  // Exit the program
 }
 
 void handle_enter() {

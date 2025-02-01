@@ -153,6 +153,13 @@ double evaluate_expression(const char* expression) {
         }
         // Current character is an operator
         else if (expression[i] == '+' || expression[i] == '-' || expression[i] == '*' || expression[i] == '/' || expression[i] == '^') {
+            // Handle negation with power operator
+            if (expression[i] == '^' && negation_flag) {
+                ops[++op_top] = expression[i];  // Push power operator
+                printf("Pushed power operator to stack\n");
+                negation_flag = 0; // Reset negation flag for exponent
+                continue;
+            }
             // Resolve previous operators with higher or equal precedence
             while (op_top >= 0 && precedence(ops[op_top]) >= precedence(expression[i])) {
                 double val2 = values[value_top--];
